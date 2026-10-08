@@ -218,3 +218,26 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Jupyter temporary files
+.ipynb_checkpoints/
+
+# Original datasets
+data/raw/*
+!data/raw/.gitkeep
+
+# Trained models
+models/*.joblib
+models/*.pkl
+
+# IDE configuration
+.idea/
