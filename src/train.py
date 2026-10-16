@@ -1,3 +1,8 @@
+
+from pathlib import Path
+
+import joblib
+
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
@@ -10,8 +15,13 @@ from evaluation import (
     evaluate_model,
     get_oof_probabilities,
     compare_thresholds,
-    find_best_threshold
+    find_best_threshold,
+    evaluate_test_set
 )
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MODEL_PATH = PROJECT_ROOT / "models" / "random_forest.joblib"
 
 
 def main():
@@ -54,15 +64,15 @@ def main():
         ])
     }
 
-    # 4. Evaluate all models
-    model_results = {}
-
+    # 4. Evaluate all models using cross-validation
     for name, model in models.items():
-        model_results[name] = evaluate_model(
+        evaluate_model(
             name, model, X_train, y_train, cv
         )
 
     # 5. Compare classification thresholds
+    selected_threshold = None
+
     for name in ["Logistic Regression", "Random Forest"]:
         model = models[name]
 
@@ -77,15 +87,50 @@ def main():
         print(f"\n{name} Threshold Comparison:")
         print(threshold_results.round(3).to_string(index=False))
 
-        # 6. Optimize the Random Forest threshold
+        # Optimize threshold for Random Forest
         if name == "Random Forest":
-            best = find_best_threshold(y_train, probabilities)
+            best = find_best_threshold(
+                y_train, probabilities
+            )
+
+            selected_threshold = best["threshold"]
 
             print("\nBest Random Forest Threshold:")
             print(f"Threshold: {best['threshold']:.4f}")
             print(f"Precision: {best['precision']:.2%}")
             print(f"Recall: {best['recall']:.2%}")
             print(f"F1-score: {best['f1']:.2%}")
+
+    # 6. Train final Random Forest on all training data
+    final_model = models["Random Forest"]
+
+    print("\nTraining final Random Forest...")
+    final_model.fit(X_train, y_train)
+
+    print("Final model trained successfully!")
+
+    # 7. Evaluate once on the held-out test set
+    evaluate_test_set(
+        final_model,
+        X_test,
+        y_test,
+        selected_threshold
+    )
+
+    # 8. Save fitted pipeline and selected threshold
+    MODEL_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    artifact = {
+        "model": final_model,
+        "threshold": selected_threshold
+    }
+
+    joblib.dump(artifact, MODEL_PATH)
+
+    print(f"\nModel saved to: {MODEL_PATH}")
 
 
 if __name__ == "__main__":

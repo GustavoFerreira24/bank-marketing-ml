@@ -8,7 +8,10 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     average_precision_score,
-    precision_recall_curve
+    precision_recall_curve,
+    accuracy_score,
+    roc_auc_score,
+    confusion_matrix
 )
 
 
@@ -132,3 +135,67 @@ def find_best_threshold(y_true, probabilities):
         "recall": float(recall[best_index]),
         "f1": float(f1_scores[best_index])
     }
+
+
+
+
+def evaluate_test_set(model, X_test, y_test, threshold):
+    """Evaluate the final model on the held-out test set."""
+
+    # Obtain probabilities for the positive class
+    positive_index = list(model.classes_).index("yes")
+
+    probabilities = model.predict_proba(X_test)[
+        :, positive_index
+    ]
+
+    # Convert probabilities into class predictions
+    predictions = np.where(
+        probabilities >= threshold,
+        "yes",
+        "no"
+    )
+
+    # Binary target for probability-based metrics
+    y_binary = (y_test == "yes").astype(int)
+
+    results = {
+        "accuracy": accuracy_score(y_test, predictions),
+        "precision": precision_score(
+            y_test, predictions, pos_label="yes", zero_division=0
+        ),
+        "recall": recall_score(
+            y_test, predictions, pos_label="yes", zero_division=0
+        ),
+        "f1": f1_score(
+            y_test, predictions, pos_label="yes", zero_division=0
+        ),
+        "roc_auc": roc_auc_score(y_binary, probabilities),
+        "pr_auc": average_precision_score(
+            y_binary, probabilities
+        )
+    }
+
+    # Confusion matrix
+    tn, fp, fn, tp = confusion_matrix(
+        y_test,
+        predictions,
+        labels=["no", "yes"]
+    ).ravel()
+
+    print("\nFinal Test Set Results:")
+    print(f"Threshold: {threshold:.4f}")
+    print(f"Accuracy: {results['accuracy']:.2%}")
+    print(f"Precision: {results['precision']:.2%}")
+    print(f"Recall: {results['recall']:.2%}")
+    print(f"F1-score: {results['f1']:.2%}")
+    print(f"ROC-AUC: {results['roc_auc']:.4f}")
+    print(f"PR-AUC: {results['pr_auc']:.4f}")
+
+    print("\nConfusion Matrix:")
+    print(f"True Negatives: {tn}")
+    print(f"False Positives: {fp}")
+    print(f"False Negatives: {fn}")
+    print(f"True Positives: {tp}")
+
+    return results
